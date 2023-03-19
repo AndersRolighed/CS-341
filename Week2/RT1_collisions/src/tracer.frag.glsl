@@ -184,7 +184,20 @@ bool ray_plane_intersection(
 	// can use the plane center if you need it
 	vec3 plane_center = plane_normal * plane_offset;
 	t = MAX_RANGE + 10.;
-	//normal = ...;
+
+	float direction = dot(ray_direction, plane_normal);
+	vec3 distance = plane_center - ray_origin;
+	float numerator = dot(distance, plane_normal);
+	t = numerator / direction;
+    
+	if (t >= 0.0) {
+		float x = 1.0;     
+		if (direction >= 0.0) {
+			x = -1.0;
+		}
+		normal = x * plane_normal;
+		return true;
+	}
 	return false;
 }
 
@@ -205,10 +218,54 @@ bool ray_cylinder_intersection(
 	- return whether there is an intersection with t > 0
 	*/
 
+    vec3 cylinder_axis = normalize(cyl.axis);
+
+    vec3 r_ray_direction = ray_direction;
+
 	vec3 intersection_point;
 	t = MAX_RANGE + 10.;
 
-	return false;
+    float dx = ray_origin.x - cyl.center.x;
+    float dy = ray_origin.y - cyl.center.y;
+    
+    vec3 d = ray_direction - dot(ray_direction, cylinder_axis) * cylinder_axis;
+	vec3 o = ray_origin - cyl.center;
+
+	float a = dot(d, d);
+	float b = 2.0 * dot(d, o - dot(o, cylinder_axis) * cylinder_axis);
+	float c = dot(o - dot(o, cylinder_axis) * cylinder_axis, o - dot(o, cylinder_axis) * cylinder_axis) - cyl.radius * cyl.radius;
+
+    vec2 solutions;
+
+    int num_solutions = solve_quadratic(a, b, c, solutions);
+
+    if (num_solutions <= 0)
+    {
+        return false;
+    }
+
+    if (solutions[1] < solutions[0]) {
+        float temp = solutions[1];
+        solutions[1] = solutions[0];
+        solutions[0] = temp;
+    }
+
+    if (solutions[0] > 0. && length(ray_origin + solutions[0] * r_ray_direction - cyl.center) < cyl.height / 2. + .2)
+    {
+        t = solutions[0];
+    }
+    else if (num_solutions > 1 && solutions[1] > 0. && length(ray_origin + solutions[1] * r_ray_direction - cyl.center) < cyl.height / 2. + .2)
+    {
+        t = solutions[1];
+    }
+    else {
+        return false;
+    }
+
+    intersection_point = ray_origin + r_ray_direction * t;
+	normal = (intersection_point - cyl.center) / cyl.radius;
+
+	return true;
 }
 
 
